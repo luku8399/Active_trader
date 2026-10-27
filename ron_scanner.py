@@ -8,9 +8,9 @@ import pandas as pd
 import numpy as np
 
 IST = pytz.timezone('Asia/Kolkata')
-RISK_AMOUNT = 400.0  # Har trade par strictly ₹400 ka risk
+RISK_AMOUNT = 400.0  # ₹400 fixed risk per trade
 
-# Telegram Secrets (GitHub Secrets se read honge)
+# Telegram Secrets
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 RADAR_BOT_TOKEN = os.getenv("TELEGRAM_RADAR_BOT_TOKEN", BOT_TOKEN)
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
@@ -25,11 +25,13 @@ WATCHLIST = [
 def send_telegram_msg(msg: str, is_radar: bool = False):
     token = RADAR_BOT_TOKEN if is_radar else BOT_TOKEN
     if not token or not CHAT_ID:
+        print("Telegram Token ya Chat ID missing hai!")
         return
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": msg, "parse_mode": "Markdown"}
+    payload = {"chat_id": CHAT_ID, "text": msg}
     try:
-        requests.post(url, json=payload, timeout=8)
+        resp = requests.post(url, json=payload, timeout=8)
+        print(f"Telegram status: {resp.status_code}")
     except Exception as e:
         print(f"Telegram send error: {e}")
 
@@ -47,20 +49,21 @@ def get_nifty_bias():
         return "NEUTRAL"
 
 def main():
-    print("⚡ Starting Ron Weasley Scanner Engine (IST Real-Time)...")
+    print("⚡ Starting Ron Weasley Scanner Engine (IST Locked)...")
 
-    # 1. STRATEGY ACTIVATION NOTIFICATION (System chalu hote hi turant aayega)
+    # 1. STRATEGY ACTIVATION NOTIFICATION (Chalu hote hi turant aayega)
     now_ist = datetime.datetime.now(IST)
     activation_msg = (
-        f"⚡ *RON WEASLEY STRATEGY ACTIVATED!*\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
+        "⚡ RON WEASLEY STRATEGY ACTIVATED!\n"
+        "------------------------------------\n"
         f"📅 Date: {now_ist.strftime('%d-%m-%Y')}\n"
-        f"⏰ Active Window: 09:20 AM - 01:30 PM IST\n"
-        f"🎯 Setup: Narrow CPR + PDH/PDL Breakout\n"
-        f"🛡️ Risk Model: ₹400 Fixed Risk / Trade\n"
-        f"📊 Universe: 15 High-Beta Stocks Live\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"System Online & Scanning Real-Time Market Ticks..."
+        f"⏰ Current IST Time: {now_ist.strftime('%I:%M %p')}\n"
+        "⏰ Active Window: 09:20 AM - 01:30 PM IST\n"
+        "🎯 Setup: Narrow CPR + PDH/PDL Breakout\n"
+        "🛡️ Risk: Rs 400 Fixed Risk / Trade\n"
+        "📊 Universe: 15 High-Beta Stocks Live\n"
+        "------------------------------------\n"
+        "System Online & Scanning Real-Time Market Ticks..."
     )
     send_telegram_msg(activation_msg, is_radar=False)
 
@@ -72,19 +75,19 @@ def main():
         now = datetime.datetime.now(IST)
         curr_min = now.hour * 60 + now.minute
 
-        # 09:20 AM IST check (560 minutes)
+        # 09:20 AM IST se pehle wait karega (560 minutes)
         if curr_min < 560:
             time.sleep(20)
             continue
 
-        # 2. AUTO-CLOSE AT 01:30 PM IST (810 minutes) & CLOSE NOTIFICATION
+        # THEEK 01:30 PM IST (810 minutes) PAR AUTO-CLOSE
         if curr_min >= 810:
             close_msg = (
-                f"🛑 *RON WEASLEY STRATEGY CLOSED*\n"
-                f"━━━━━━━━━━━━━━━━━━━\n"
-                f"⏰ Time: 01:30 PM IST\n"
-                f"Market prime momentum session ended.\n"
-                f"Scanner automatically shut down for the day."
+                "🛑 RON WEASLEY STRATEGY CLOSED\n"
+                "------------------------------------\n"
+                f"⏰ Exit Time: {now.strftime('%I:%M %p')} IST\n"
+                "Narrow CPR prime session ended.\n"
+                "Scanner cleanly shut down for the day."
             )
             print(close_msg)
             send_telegram_msg(close_msg, is_radar=False)
@@ -125,33 +128,30 @@ def main():
                 live_price = float(live_bar['Close'])
                 clean_sym = sym.replace('.NS', '')
 
-                # 3. PRE-BREAKOUT / BREAKDOWN RADAR ALERT (0.25% zone me aate hi)
+                # 2. PRE-BREAKOUT / BREAKDOWN RADAR ALERT (0.25% zone)
                 if clean_sym not in triggered_radar:
-                    # Near PDH (0.25% zone)
                     if 0 <= (pdh - live_price) / pdh <= 0.0025:
                         radar_msg = (
-                            f"📡 *PRE-BREAKOUT RADAR: {clean_sym}*\n"
+                            f"📡 PRE-BREAKOUT RADAR: {clean_sym}\n"
                             f"🎯 PDH ke bilkul kareeb hai!\n"
-                            f"📊 Current: ₹{live_price:.2f} | PDH: ₹{pdh:.2f}\n"
-                            f"⚡ Chart open karke tayar rahein!"
+                            f"📊 Current: Rs {live_price:.2f} | PDH: Rs {pdh:.2f}\n"
+                            "⚡ Chart open karke tayar rahein!"
                         )
                         send_telegram_msg(radar_msg, is_radar=True)
                         triggered_radar.add(clean_sym)
-
-                    # Near PDL (0.25% zone)
                     elif 0 <= (live_price - pdl) / pdl <= 0.0025:
                         radar_msg = (
-                            f"📡 *PRE-BREAKDOWN RADAR: {clean_sym}*\n"
+                            f"📡 PRE-BREAKDOWN RADAR: {clean_sym}\n"
                             f"🎯 PDL ke bilkul kareeb hai!\n"
-                            f"📊 Current: ₹{live_price:.2f} | PDL: ₹{pdl:.2f}\n"
-                            f"⚡ Chart open karke tayar rahein!"
+                            f"📊 Current: Rs {live_price:.2f} | PDL: Rs {pdl:.2f}\n"
+                            "⚡ Chart open karke tayar rahein!"
                         )
                         send_telegram_msg(radar_msg, is_radar=True)
                         triggered_radar.add(clean_sym)
 
-                # 4. CONFIRMED EXECUTION ALERT (10:00 AM se 01:30 PM tak)
+                # 3. CONFIRMED EXECUTION ALERT (10:00 AM se 01:30 PM tak)
                 if curr_min >= 600 and clean_sym not in triggered_exec:
-                    # BUY SIGNAL: 5m Candle Close > PDH aur Close > VWAP + Nifty Bullish
+                    # BUY SIGNAL
                     if closed_bar['Close'] > pdh and closed_bar['Close'] > vwap and nifty_bias == "BULLISH":
                         entry = live_price
                         sl = min(float(closed_bar['Low']), float(vwap))
@@ -161,13 +161,13 @@ def main():
                         t2 = entry + (2.0 * risk_per_share)
 
                         exec_msg = (
-                            f"🚀 *BUY CONFIRMED: {clean_sym}*\n"
-                            f"━━━━━━━━━━━━━━━━━━━\n"
-                            f"📈 Entry Price: ₹{entry:.2f}\n"
-                            f"🛡️ Stop-Loss: ₹{sl:.2f}\n"
-                            f"🎯 Target 1 (+1.0R): ₹{t1:.2f}\n"
-                            f"🎯 Target 2 (+2.0R): ₹{t2:.2f}\n"
-                            f"📦 Qty: {qty} shares (Fixed ₹400 Risk)"
+                            f"🚀 BUY CONFIRMED: {clean_sym}\n"
+                            "------------------------------------\n"
+                            f"📈 Entry Price: Rs {entry:.2f}\n"
+                            f"🛡️ Stop-Loss: Rs {sl:.2f}\n"
+                            f"🎯 Target 1 (+1.0R): Rs {t1:.2f}\n"
+                            f"🎯 Target 2 (+2.0R): Rs {t2:.2f}\n"
+                            f"📦 Qty: {qty} shares (Fixed Rs 400 Risk)"
                         )
                         send_telegram_msg(exec_msg, is_radar=False)
                         triggered_exec.add(clean_sym)
@@ -176,7 +176,7 @@ def main():
                             "t1": t1, "t2": t2, "t1_hit": False
                         }
 
-                    # SELL SIGNAL: 5m Candle Close < PDL aur Close < VWAP + Nifty Bearish
+                    # SELL SIGNAL
                     elif closed_bar['Close'] < pdl and closed_bar['Close'] < vwap and nifty_bias == "BEARISH":
                         entry = live_price
                         sl = max(float(closed_bar['High']), float(vwap))
@@ -186,13 +186,13 @@ def main():
                         t2 = entry - (2.0 * risk_per_share)
 
                         exec_msg = (
-                            f"🔻 *SELL CONFIRMED: {clean_sym}*\n"
-                            f"━━━━━━━━━━━━━━━━━━━\n"
-                            f"📉 Entry Price: ₹{entry:.2f}\n"
-                            f"🛡️ Stop-Loss: ₹{sl:.2f}\n"
-                            f"🎯 Target 1 (+1.0R): ₹{t1:.2f}\n"
-                            f"🎯 Target 2 (+2.0R): ₹{t2:.2f}\n"
-                            f"📦 Qty: {qty} shares (Fixed ₹400 Risk)"
+                            f"🔻 SELL CONFIRMED: {clean_sym}\n"
+                            "------------------------------------\n"
+                            f"📉 Entry Price: Rs {entry:.2f}\n"
+                            f"🛡️ Stop-Loss: Rs {sl:.2f}\n"
+                            f"🎯 Target 1 (+1.0R): Rs {t1:.2f}\n"
+                            f"🎯 Target 2 (+2.0R): Rs {t2:.2f}\n"
+                            f"📦 Qty: {qty} shares (Fixed Rs 400 Risk)"
                         )
                         send_telegram_msg(exec_msg, is_radar=False)
                         triggered_exec.add(clean_sym)
@@ -201,7 +201,7 @@ def main():
                             "t1": t1, "t2": t2, "t1_hit": False
                         }
 
-                # 5. TRADE LIFECYCLE MANAGEMENT (Targets & Cost Trailing)
+                # 4. TRADE LIFECYCLE MANAGEMENT (Trailing & Targets)
                 if clean_sym in tracked_trades:
                     trade = tracked_trades[clean_sym]
                     if trade["type"] == "BUY":
@@ -209,22 +209,22 @@ def main():
                             trade["t1_hit"] = True
                             trade["sl"] = trade["entry"]
                             send_telegram_msg(
-                                f"🎯 *TARGET 1 ACHIEVED: {clean_sym}*\n"
-                                f"✅ Book 50% Profit (+1.0R = +₹200)\n"
-                                f"🔒 SL Trailed to Cost: ₹{trade['sl']:.2f} (Trade Risk-Free!)",
+                                f"🎯 TARGET 1 ACHIEVED: {clean_sym}\n"
+                                "✅ Book 50% Profit (+1.0R = +Rs 200)\n"
+                                f"🔒 SL Trailed to Cost: Rs {trade['sl']:.2f} (Trade Risk-Free!)",
                                 is_radar=False
                             )
                         elif trade["t1_hit"] and live_price >= trade["t2"]:
                             send_telegram_msg(
-                                f"🏆 *TARGET 2 ACHIEVED: {clean_sym}*\n"
-                                f"🎉 Book Final Profit (+2.0R = +₹400)!\nPosition fully closed.",
+                                f"🏆 TARGET 2 ACHIEVED: {clean_sym}\n"
+                                "🎉 Book Final Profit (+2.0R = +Rs 400)!\nPosition fully closed.",
                                 is_radar=False
                             )
                             del tracked_trades[clean_sym]
                         elif live_price <= trade["sl"]:
-                            status = "Cost Trailing SL Hit (Zero Loss)" if trade["t1_hit"] else "Initial SL Hit (-₹400)"
+                            status = "Cost Trailing SL Hit (Zero Loss)" if trade["t1_hit"] else "Initial SL Hit (-Rs 400)"
                             send_telegram_msg(
-                                f"🛑 *STOP-LOSS HIT: {clean_sym}*\nExit Price: ₹{live_price:.2f}\nStatus: {status}.",
+                                f"🛑 STOP-LOSS HIT: {clean_sym}\nExit Price: Rs {live_price:.2f}\nStatus: {status}.",
                                 is_radar=False
                             )
                             del tracked_trades[clean_sym]
@@ -234,22 +234,22 @@ def main():
                             trade["t1_hit"] = True
                             trade["sl"] = trade["entry"]
                             send_telegram_msg(
-                                f"🎯 *TARGET 1 ACHIEVED: {clean_sym}*\n"
-                                f"✅ Book 50% Profit (+1.0R = +₹200)\n"
-                                f"🔒 SL Trailed to Cost: ₹{trade['sl']:.2f} (Trade Risk-Free!)",
+                                f"🎯 TARGET 1 ACHIEVED: {clean_sym}\n"
+                                "✅ Book 50% Profit (+1.0R = +Rs 200)\n"
+                                f"🔒 SL Trailed to Cost: Rs {trade['sl']:.2f} (Trade Risk-Free!)",
                                 is_radar=False
                             )
                         elif trade["t1_hit"] and live_price <= trade["t2"]:
                             send_telegram_msg(
-                                f"🏆 *TARGET 2 ACHIEVED: {clean_sym}*\n"
-                                f"🎉 Book Final Profit (+2.0R = +₹400)!\nPosition fully closed.",
+                                f"🏆 TARGET 2 ACHIEVED: {clean_sym}\n"
+                                "🎉 Book Final Profit (+2.0R = +Rs 400)!\nPosition fully closed.",
                                 is_radar=False
                             )
                             del tracked_trades[clean_sym]
                         elif live_price >= trade["sl"]:
-                            status = "Cost Trailing SL Hit (Zero Loss)" if trade["t1_hit"] else "Initial SL Hit (-₹400)"
+                            status = "Cost Trailing SL Hit (Zero Loss)" if trade["t1_hit"] else "Initial SL Hit (-Rs 400)"
                             send_telegram_msg(
-                                f"🛑 *STOP-LOSS HIT: {clean_sym}*\nExit Price: ₹{live_price:.2f}\nStatus: {status}.",
+                                f"🛑 STOP-LOSS HIT: {clean_sym}\nExit Price: Rs {live_price:.2f}\nStatus: {status}.",
                                 is_radar=False
                             )
                             del tracked_trades[clean_sym]
@@ -257,7 +257,7 @@ def main():
             except Exception as e:
                 print(f"Error scanning {sym}: {e}")
 
-        time.sleep(30)  # Har 30 seconds me live ticks scan karega
+        time.sleep(30)
 
 if __name__ == "__main__":
     main()
